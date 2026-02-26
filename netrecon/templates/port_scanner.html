@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NetRecon — Port Scanner</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #020408; --surface: #0a0f1a; --surface2: #0d1525;
+      --border: #1a2540; --border2: #243050;
+      --accent: #00d4ff; --accent2: #7c3aed; --accent3: #10b981;
+      --text: #e2e8f0; --muted: #64748b; --danger: #ef4444; --warn: #f59e0b;
+    }
+    body { font-family: 'Syne', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; }
+
+    /* Sidebar */
+    .sidebar { position: fixed; top: 0; left: 0; bottom: 0; width: 240px; background: rgba(10,15,26,.95); border-right: 1px solid var(--border); display: flex; flex-direction: column; backdrop-filter: blur(20px); z-index: 100; padding: 24px 0; }
+    .logo { display: flex; align-items: center; gap: 10px; padding: 0 24px 28px; border-bottom: 1px solid var(--border); }
+    .logo-icon { width: 36px; height: 36px; background: linear-gradient(135deg, var(--accent), var(--accent2)); border-radius: 10px; display: grid; place-items: center; font-size: 16px; }
+    .logo-text { font-size: 20px; font-weight: 800; letter-spacing: -.5px; }
+    .logo-text span { color: var(--accent); }
+    .nav { flex: 1; padding: 20px 12px; display: flex; flex-direction: column; gap: 4px; }
+    .nav-item { display: flex; align-items: center; gap: 12px; padding: 11px 14px; border-radius: 10px; color: var(--muted); font-size: 14px; font-weight: 600; text-decoration: none; transition: all .2s; border: 1px solid transparent; }
+    .nav-item:hover { background: rgba(255,255,255,.04); color: var(--text); }
+    .nav-item.active { background: rgba(0,212,255,.08); color: var(--accent); border-color: rgba(0,212,255,.15); }
+    .nav-item .icon { font-size: 16px; width: 20px; text-align: center; }
+    .nav-label { padding: 20px 14px 8px; font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--muted); letter-spacing: 1.5px; text-transform: uppercase; }
+    .user-section { padding: 16px 20px; border-top: 1px solid var(--border); }
+    .user-card { display: flex; align-items: center; gap: 10px; }
+    .user-avatar { width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--accent); object-fit: cover; }
+    .user-avatar-fallback { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent2)); display: grid; place-items: center; font-size: 14px; font-weight: 700; color: #000; flex-shrink: 0; }
+    .user-info { flex: 1; min-width: 0; }
+    .user-name { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .user-role { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--accent3); }
+    .logout-btn { width: 28px; height: 28px; background: rgba(239,68,68,.1); border: 1px solid rgba(239,68,68,.2); border-radius: 8px; display: grid; place-items: center; cursor: pointer; color: var(--danger); font-size: 14px; text-decoration: none; flex-shrink: 0; transition: all .2s; }
+    .logout-btn:hover { background: rgba(239,68,68,.2); }
+
+    /* Main */
+    .main { margin-left: 240px; flex: 1; min-height: 100vh; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; padding: 20px 32px; border-bottom: 1px solid var(--border); background: rgba(10,15,26,.8); backdrop-filter: blur(10px); position: sticky; top: 0; z-index: 50; }
+    .page-title { font-size: 22px; font-weight: 800; }
+    .page-title span { color: var(--accent); }
+    .back-btn { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; text-decoration: none; font-family: 'JetBrains Mono', monospace; transition: color .2s; }
+    .back-btn:hover { color: var(--accent); }
+
+    .content { padding: 32px; }
+
+    /* Scan form */
+    .scan-form-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 16px; padding: 28px; margin-bottom: 24px;
+      position: relative; overflow: hidden;
+    }
+    .scan-form-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, var(--accent), transparent); }
+
+    .form-title { font-size: 16px; font-weight: 700; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+    .form-title span { font-family: 'JetBrains Mono', monospace; color: var(--accent); font-size: 13px; }
+
+    .form-row { display: grid; grid-template-columns: 1fr auto auto; gap: 12px; align-items: end; margin-bottom: 16px; }
+    .form-group { display: flex; flex-direction: column; gap: 8px; }
+    label { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); letter-spacing: .5px; }
+    input, select {
+      background: var(--surface2); border: 1px solid var(--border2);
+      border-radius: 10px; padding: 12px 16px; color: var(--text);
+      font-family: 'JetBrains Mono', monospace; font-size: 14px;
+      outline: none; transition: all .2s; width: 100%;
+    }
+    input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(0,212,255,.1); }
+    input::placeholder { color: var(--muted); }
+    select option { background: #0d1525; }
+
+    .btn-scan {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      padding: 12px 28px; background: linear-gradient(135deg, var(--accent), #0099cc);
+      border: none; border-radius: 10px; color: #000;
+      font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 800;
+      cursor: pointer; transition: all .2s; white-space: nowrap; min-width: 160px;
+    }
+    .btn-scan:hover { transform: translateY(-1px); box-shadow: 0 8px 25px rgba(0,212,255,.3); }
+    .btn-scan:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+    /* Progress */
+    .progress-bar-wrap { height: 4px; background: var(--border); border-radius: 4px; overflow: hidden; margin-top: 16px; display: none; }
+    .progress-bar { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 4px; transition: width .3s; width: 0%; animation: shimmer 1.5s infinite; }
+    @keyframes shimmer {
+      0% { filter: brightness(1); } 50% { filter: brightness(1.4); } 100% { filter: brightness(1); }
+    }
+
+    /* Status */
+    .status-line { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--muted); margin-top: 12px; display: none; }
+    .status-line.show { display: block; }
+
+    /* Results */
+    .results-section { display: none; }
+    .results-section.show { display: block; }
+
+    .results-header { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+    .result-stat { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px; text-align: center; }
+    .result-stat .val { font-size: 28px; font-weight: 800; }
+    .result-stat .lbl { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--muted); margin-top: 4px; }
+
+    /* Port table */
+    .table-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+    .table-header { padding: 16px 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+    .table-header h3 { font-size: 15px; font-weight: 700; }
+
+    .filter-tabs { display: flex; gap: 8px; }
+    .filter-tab { padding: 5px 14px; border-radius: 20px; font-family: 'JetBrains Mono', monospace; font-size: 11px; cursor: pointer; border: 1px solid var(--border); background: transparent; color: var(--muted); transition: all .15s; }
+    .filter-tab.active { background: rgba(0,212,255,.1); color: var(--accent); border-color: rgba(0,212,255,.2); }
+
+    table { width: 100%; border-collapse: collapse; }
+    th { padding: 12px 20px; text-align: left; font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; border-bottom: 1px solid var(--border); background: rgba(0,0,0,.2); }
+    td { padding: 13px 20px; font-family: 'JetBrains Mono', monospace; font-size: 13px; border-bottom: 1px solid rgba(26,37,64,.5); }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255,255,255,.02); }
+
+    .port-num { font-weight: 700; color: var(--accent); }
+    .service-name { color: var(--text); }
+    .banner-text { color: var(--muted); font-size: 11px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    .risk-badge { padding: 3px 10px; border-radius: 20px; font-size: 10px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; }
+    .risk-high { background: rgba(239,68,68,.1); color: #f87171; border: 1px solid rgba(239,68,68,.2); }
+    .risk-medium { background: rgba(245,158,11,.1); color: #fbbf24; border: 1px solid rgba(245,158,11,.2); }
+    .risk-low { background: rgba(16,185,129,.1); color: #34d399; border: 1px solid rgba(16,185,129,.2); }
+
+    /* Error */
+    .error-card { background: rgba(239,68,68,.06); border: 1px solid rgba(239,68,68,.2); border-radius: 12px; padding: 20px; font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #f87171; display: none; }
+    .error-card.show { display: block; }
+  </style>
+</head>
+<body>
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="logo">
+      <div class="logo-icon">🛡️</div>
+      <div class="logo-text">Net<span>Recon</span></div>
+    </div>
+    <div class="nav">
+      <div class="nav-label">Navigation</div>
+      <a href="{{ url_for('dashboard') }}" class="nav-item"><span class="icon">📊</span> Dashboard</a>
+      <a href="{{ url_for('port_scanner_page') }}" class="nav-item active"><span class="icon">🔌</span> Port Scanner</a>
+      <a href="{{ url_for('url_scanner_page') }}" class="nav-item"><span class="icon">🔍</span> URL / Tech Scanner</a>
+    </div>
+    <div class="user-section">
+      <div class="user-card">
+        {% if user.avatar %}
+          <img src="{{ user.avatar }}" alt="{{ user.name }}" class="user-avatar" onerror="this.style.display='none'">
+        {% else %}
+          <div class="user-avatar-fallback">{{ user.name[0] }}</div>
+        {% endif %}
+        <div class="user-info">
+          <div class="user-name">{{ user.name.split()[0] }}</div>
+          <div class="user-role">● Analyst</div>
+        </div>
+        <a href="{{ url_for('logout') }}" class="logout-btn">⏏</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="page-title"><span>//</span> Port Scanner</div>
+      <a href="{{ url_for('dashboard') }}" class="back-btn">← Back to Dashboard</a>
+    </div>
+
+    <div class="content">
+      <!-- Scan Form -->
+      <div class="scan-form-card">
+        <div class="form-title">Target Configuration <span>[ TCP Port Scan ]</span></div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>TARGET IP / HOSTNAME</label>
+            <input type="text" id="target" placeholder="192.168.1.1 or example.com" />
+          </div>
+          <div class="form-group">
+            <label>SCAN RANGE</label>
+            <select id="rangeSelect" onchange="toggleCustom()">
+              <option value="common">Common Ports (~70)</option>
+              <option value="top1000">Top 1000 Ports</option>
+              <option value="full">Full Range (1-65535)</option>
+              <option value="custom">Custom Range</option>
+            </select>
+          </div>
+          <button class="btn-scan" id="scanBtn" onclick="runScan()">
+            <span id="btnIcon">🔌</span>
+            <span id="btnText">Scan Ports</span>
+          </button>
+        </div>
+        <div id="customRow" style="display:none; margin-top: 8px;">
+          <div class="form-group">
+            <label>CUSTOM PORTS (e.g. 80,443,8080-8090)</label>
+            <input type="text" id="customPorts" placeholder="80,443,3000,8080-8090" />
+          </div>
+        </div>
+        <div class="progress-bar-wrap" id="progressWrap">
+          <div class="progress-bar" id="progressBar"></div>
+        </div>
+        <div class="status-line" id="statusLine">$ initializing scan...</div>
+      </div>
+
+      <!-- Error -->
+      <div class="error-card" id="errorCard"></div>
+
+      <!-- Results -->
+      <div class="results-section" id="resultsSection">
+        <div class="results-header" id="resultsHeader"></div>
+        <div class="table-card">
+          <div class="table-header">
+            <h3>🔌 Open Ports</h3>
+            <div class="filter-tabs" id="filterTabs">
+              <button class="filter-tab active" onclick="filterResults('all', this)">All</button>
+              <button class="filter-tab" onclick="filterResults('high', this)">🔴 High Risk</button>
+              <button class="filter-tab" onclick="filterResults('medium', this)">🟡 Medium</button>
+              <button class="filter-tab" onclick="filterResults('low', this)">🟢 Low</button>
+            </div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Port</th><th>Service</th><th>Risk</th>
+                <th>Response Time</th><th>Banner / Info</th>
+              </tr>
+            </thead>
+            <tbody id="portsBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    let allPorts = [];
+    let scanTimer = null;
+
+    function toggleCustom() {
+      const v = document.getElementById('rangeSelect').value;
+      document.getElementById('customRow').style.display = v === 'custom' ? 'block' : 'none';
+    }
+
+    function setStatus(msg) {
+      const s = document.getElementById('statusLine');
+      s.textContent = '$ ' + msg;
+      s.classList.add('show');
+    }
+
+    function animateProgress(duration) {
+      const bar = document.getElementById('progressBar');
+      const wrap = document.getElementById('progressWrap');
+      wrap.style.display = 'block';
+      bar.style.width = '0%';
+      let pct = 0;
+      const step = () => {
+        pct = Math.min(95, pct + (100 - pct) * 0.015);
+        bar.style.width = pct + '%';
+        if (pct < 95) scanTimer = setTimeout(step, 100);
+      };
+      step();
+    }
+
+    function finishProgress() {
+      clearTimeout(scanTimer);
+      const bar = document.getElementById('progressBar');
+      bar.style.width = '100%';
+      setTimeout(() => { document.getElementById('progressWrap').style.display = 'none'; }, 800);
+    }
+
+    async function runScan() {
+      const target = document.getElementById('target').value.trim();
+      if (!target) { alert('Please enter a target IP or hostname'); return; }
+
+      const scanBtn = document.getElementById('scanBtn');
+      const range = document.getElementById('rangeSelect').value;
+      const customPorts = document.getElementById('customPorts').value;
+
+      scanBtn.disabled = true;
+      document.getElementById('btnIcon').textContent = '⏳';
+      document.getElementById('btnText').textContent = 'Scanning...';
+      document.getElementById('errorCard').classList.remove('show');
+      document.getElementById('resultsSection').classList.remove('show');
+
+      animateProgress();
+      setStatus(`scanning ${target} [${range}] — this may take a moment...`);
+
+      try {
+        const resp = await fetch('/api/scan/port', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ target, range, custom_ports: customPorts })
+        });
+        const data = await resp.json();
+        finishProgress();
+
+        if (data.error) {
+          document.getElementById('errorCard').textContent = '⚠ Error: ' + data.error;
+          document.getElementById('errorCard').classList.add('show');
+          setStatus('scan failed — ' + data.error);
+        } else {
+          displayResults(data);
+          setStatus(`scan complete — ${data.open_count} open ports found in ${data.scan_time}s`);
+        }
+      } catch(e) {
+        finishProgress();
+        document.getElementById('errorCard').textContent = '⚠ Request failed: ' + e.message;
+        document.getElementById('errorCard').classList.add('show');
+        setStatus('error — ' + e.message);
+      } finally {
+        scanBtn.disabled = false;
+        document.getElementById('btnIcon').textContent = '🔌';
+        document.getElementById('btnText').textContent = 'Scan Ports';
+      }
+    }
+
+    function displayResults(data) {
+      allPorts = data.open_ports || [];
+      document.getElementById('resultsSection').classList.add('show');
+
+      const ipInfo = data.hostname ? `${data.ip} (${data.hostname})` : data.ip;
+
+      document.getElementById('resultsHeader').innerHTML = `
+        <div class="result-stat"><div class="val" style="color:var(--accent)">${data.open_count}</div><div class="lbl">OPEN PORTS</div></div>
+        <div class="result-stat"><div class="val" style="color:#f87171">${data.stats.high_risk}</div><div class="lbl">HIGH RISK</div></div>
+        <div class="result-stat"><div class="val" style="color:#fbbf24">${data.stats.medium_risk}</div><div class="lbl">MEDIUM RISK</div></div>
+        <div class="result-stat"><div class="val" style="color:var(--muted)">${data.total_scanned}</div><div class="lbl">TOTAL SCANNED</div></div>
+      `;
+      renderTable(allPorts);
+    }
+
+    function renderTable(ports) {
+      const tbody = document.getElementById('portsBody');
+      if (!ports.length) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:32px;">No open ports found</td></tr>';
+        return;
+      }
+      tbody.innerHTML = ports.map(p => `
+        <tr>
+          <td class="port-num">${p.port}</td>
+          <td class="service-name">${p.service}</td>
+          <td><span class="risk-badge risk-${p.risk}">${p.risk}</span></td>
+          <td style="color:var(--muted)">${p.response_time}ms</td>
+          <td class="banner-text" title="${p.banner || ''}">${p.banner ? p.banner.substring(0,60)+'...' : '—'}</td>
+        </tr>
+      `).join('');
+    }
+
+    function filterResults(risk, el) {
+      document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+      el.classList.add('active');
+      const filtered = risk === 'all' ? allPorts : allPorts.filter(p => p.risk === risk);
+      renderTable(filtered);
+    }
+
+    // Allow Enter key
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('target').addEventListener('keydown', e => {
+        if (e.key === 'Enter') runScan();
+      });
+    });
+  </script>
+</body>
+</html>

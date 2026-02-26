@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NetRecon — URL & Tech Scanner</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #020408; --surface: #0a0f1a; --surface2: #0d1525;
+      --border: #1a2540; --border2: #243050;
+      --accent: #00d4ff; --accent2: #7c3aed; --accent3: #10b981;
+      --text: #e2e8f0; --muted: #64748b; --danger: #ef4444; --warn: #f59e0b;
+    }
+    body { font-family: 'Syne', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; }
+
+    .sidebar { position: fixed; top: 0; left: 0; bottom: 0; width: 240px; background: rgba(10,15,26,.95); border-right: 1px solid var(--border); display: flex; flex-direction: column; backdrop-filter: blur(20px); z-index: 100; padding: 24px 0; }
+    .logo { display: flex; align-items: center; gap: 10px; padding: 0 24px 28px; border-bottom: 1px solid var(--border); }
+    .logo-icon { width: 36px; height: 36px; background: linear-gradient(135deg, var(--accent), var(--accent2)); border-radius: 10px; display: grid; place-items: center; font-size: 16px; }
+    .logo-text { font-size: 20px; font-weight: 800; letter-spacing: -.5px; }
+    .logo-text span { color: var(--accent); }
+    .nav { flex: 1; padding: 20px 12px; display: flex; flex-direction: column; gap: 4px; }
+    .nav-item { display: flex; align-items: center; gap: 12px; padding: 11px 14px; border-radius: 10px; color: var(--muted); font-size: 14px; font-weight: 600; text-decoration: none; transition: all .2s; border: 1px solid transparent; }
+    .nav-item:hover { background: rgba(255,255,255,.04); color: var(--text); }
+    .nav-item.active { background: rgba(124,58,237,.08); color: #a78bfa; border-color: rgba(124,58,237,.15); }
+    .nav-item .icon { font-size: 16px; width: 20px; text-align: center; }
+    .nav-label { padding: 20px 14px 8px; font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--muted); letter-spacing: 1.5px; text-transform: uppercase; }
+    .user-section { padding: 16px 20px; border-top: 1px solid var(--border); }
+    .user-card { display: flex; align-items: center; gap: 10px; }
+    .user-avatar { width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--accent2); object-fit: cover; }
+    .user-avatar-fallback { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent2)); display: grid; place-items: center; font-size: 14px; font-weight: 700; color: #fff; flex-shrink: 0; }
+    .user-info { flex: 1; min-width: 0; }
+    .user-name { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .user-role { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--accent3); }
+    .logout-btn { width: 28px; height: 28px; background: rgba(239,68,68,.1); border: 1px solid rgba(239,68,68,.2); border-radius: 8px; display: grid; place-items: center; cursor: pointer; color: var(--danger); font-size: 14px; text-decoration: none; flex-shrink: 0; transition: all .2s; }
+    .logout-btn:hover { background: rgba(239,68,68,.2); }
+
+    .main { margin-left: 240px; flex: 1; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; padding: 20px 32px; border-bottom: 1px solid var(--border); background: rgba(10,15,26,.8); backdrop-filter: blur(10px); position: sticky; top: 0; z-index: 50; }
+    .page-title { font-size: 22px; font-weight: 800; }
+    .page-title span { color: var(--accent2); }
+    .back-btn { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; text-decoration: none; font-family: 'JetBrains Mono', monospace; transition: color .2s; }
+    .back-btn:hover { color: var(--accent2); }
+
+    .content { padding: 32px; }
+
+    .scan-form-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 28px; margin-bottom: 24px; position: relative; overflow: hidden; }
+    .scan-form-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, var(--accent2), var(--accent)); }
+
+    .form-row { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: end; }
+    .form-group { display: flex; flex-direction: column; gap: 8px; }
+    label { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); letter-spacing: .5px; }
+    input { background: var(--surface2); border: 1px solid var(--border2); border-radius: 10px; padding: 12px 16px; color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 14px; outline: none; transition: all .2s; width: 100%; }
+    input:focus { border-color: var(--accent2); box-shadow: 0 0 0 3px rgba(124,58,237,.1); }
+    input::placeholder { color: var(--muted); }
+
+    .btn-scan { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 12px 28px; background: linear-gradient(135deg, var(--accent2), #5b21b6); border: none; border-radius: 10px; color: #fff; font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 800; cursor: pointer; transition: all .2s; white-space: nowrap; min-width: 180px; }
+    .btn-scan:hover { transform: translateY(-1px); box-shadow: 0 8px 25px rgba(124,58,237,.3); }
+    .btn-scan:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+    .progress-bar-wrap { height: 4px; background: var(--border); border-radius: 4px; overflow: hidden; margin-top: 16px; display: none; }
+    .progress-bar { height: 100%; background: linear-gradient(90deg, var(--accent2), var(--accent)); border-radius: 4px; width: 0%; animation: shimmer 1.5s infinite; }
+    @keyframes shimmer { 0%,100%{filter:brightness(1)}50%{filter:brightness(1.4)} }
+    .status-line { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--muted); margin-top: 12px; display: none; }
+    .status-line.show { display: block; }
+
+    /* Results grid */
+    .results-section { display: none; }
+    .results-section.show { display: block; }
+
+    .results-top-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+
+    .info-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; }
+    .info-card h3 { font-size: 13px; font-family: 'JetBrains Mono', monospace; color: var(--muted); margin-bottom: 14px; text-transform: uppercase; letter-spacing: 1px; display: flex; align-items: center; gap: 8px; }
+    .info-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 8px 0; border-bottom: 1px solid rgba(26,37,64,.5); font-size: 12px; }
+    .info-row:last-child { border-bottom: none; }
+    .info-key { color: var(--muted); font-family: 'JetBrains Mono', monospace; flex-shrink: 0; }
+    .info-val { color: var(--text); font-family: 'JetBrains Mono', monospace; text-align: right; word-break: break-all; }
+    .info-val.good { color: var(--accent3); }
+    .info-val.bad { color: var(--danger); }
+    .info-val.warn { color: var(--warn); }
+
+    /* Security score */
+    .security-score { text-align: center; padding: 10px 0; }
+    .score-ring { width: 80px; height: 80px; margin: 0 auto 10px; position: relative; }
+    .score-ring svg { transform: rotate(-90deg); }
+    .score-ring .bg { stroke: var(--border); fill: none; stroke-width: 8; }
+    .score-ring .fg { fill: none; stroke-width: 8; stroke-linecap: round; transition: stroke-dashoffset 1s ease; }
+    .score-label { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    .score-num { font-size: 20px; font-weight: 800; }
+    .score-grade { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); }
+
+    /* Tech stack */
+    .tech-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+    .tech-chip { display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: rgba(124,58,237,.08); border: 1px solid rgba(124,58,237,.2); border-radius: 8px; font-size: 13px; font-family: 'JetBrains Mono', monospace; transition: all .15s; }
+    .tech-chip:hover { background: rgba(124,58,237,.15); }
+    .tech-cat { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+    /* Headers table */
+    .headers-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .header-item { padding: 8px 12px; background: var(--surface2); border-radius: 8px; font-family: 'JetBrains Mono', monospace; font-size: 11px; display: flex; align-items: center; gap: 8px; }
+    .h-present { color: var(--accent3); }
+    .h-missing { color: var(--danger); opacity: .6; }
+
+    .error-card { background: rgba(239,68,68,.06); border: 1px solid rgba(239,68,68,.2); border-radius: 12px; padding: 20px; font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #f87171; display: none; margin-bottom: 16px; }
+    .error-card.show { display: block; }
+
+    .status-chip { padding: 3px 10px; border-radius: 6px; font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 700; }
+    .s-2xx { background: rgba(16,185,129,.1); color: var(--accent3); }
+    .s-3xx { background: rgba(245,158,11,.1); color: var(--warn); }
+    .s-4xx, .s-5xx { background: rgba(239,68,68,.1); color: var(--danger); }
+  </style>
+</head>
+<body>
+  <nav class="sidebar">
+    <div class="logo">
+      <div class="logo-icon">🛡️</div>
+      <div class="logo-text">Net<span>Recon</span></div>
+    </div>
+    <div class="nav">
+      <div class="nav-label">Navigation</div>
+      <a href="{{ url_for('dashboard') }}" class="nav-item"><span class="icon">📊</span> Dashboard</a>
+      <a href="{{ url_for('port_scanner_page') }}" class="nav-item"><span class="icon">🔌</span> Port Scanner</a>
+      <a href="{{ url_for('url_scanner_page') }}" class="nav-item active"><span class="icon">🔍</span> URL / Tech Scanner</a>
+    </div>
+    <div class="user-section">
+      <div class="user-card">
+        {% if user.avatar %}
+          <img src="{{ user.avatar }}" alt="{{ user.name }}" class="user-avatar" onerror="this.style.display='none'">
+        {% else %}
+          <div class="user-avatar-fallback">{{ user.name[0] }}</div>
+        {% endif %}
+        <div class="user-info">
+          <div class="user-name">{{ user.name.split()[0] }}</div>
+          <div class="user-role">● Analyst</div>
+        </div>
+        <a href="{{ url_for('logout') }}" class="logout-btn">⏏</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="page-title"><span>//</span> URL & Tech Scanner</div>
+      <a href="{{ url_for('dashboard') }}" class="back-btn">← Back to Dashboard</a>
+    </div>
+
+    <div class="content">
+      <div class="scan-form-card">
+        <div class="form-row">
+          <div class="form-group">
+            <label>TARGET URL</label>
+            <input type="text" id="urlInput" placeholder="https://example.com or just example.com" />
+          </div>
+          <button class="btn-scan" id="scanBtn" onclick="runScan()">
+            <span id="btnIcon">🔍</span>
+            <span id="btnText">Analyze Website</span>
+          </button>
+        </div>
+        <div class="progress-bar-wrap" id="progressWrap">
+          <div class="progress-bar"></div>
+        </div>
+        <div class="status-line" id="statusLine"></div>
+      </div>
+
+      <div class="error-card" id="errorCard"></div>
+
+      <div class="results-section" id="resultsSection">
+        <!-- Row 1: Site Info + SSL + Security Score -->
+        <div class="results-top-grid">
+          <!-- Site Info -->
+          <div class="info-card" style="grid-column: span 2">
+            <h3>🌐 Site Information</h3>
+            <div id="siteInfo"></div>
+          </div>
+          <!-- Security Score -->
+          <div class="info-card" style="text-align:center">
+            <h3>🔒 Security Score</h3>
+            <div class="security-score">
+              <div class="score-ring">
+                <svg viewBox="0 0 80 80" width="80" height="80">
+                  <circle class="bg" cx="40" cy="40" r="32"/>
+                  <circle class="fg" id="scoreCircle" cx="40" cy="40" r="32"
+                    stroke-dasharray="201" stroke-dashoffset="201"/>
+                </svg>
+                <div class="score-label">
+                  <div class="score-num" id="scoreNum">—</div>
+                  <div class="score-grade" id="scoreGrade">Grade</div>
+                </div>
+              </div>
+            </div>
+            <div id="securityDetails"></div>
+          </div>
+        </div>
+
+        <!-- Tech Stack -->
+        <div class="info-card" style="margin-bottom: 16px">
+          <h3>⚙️ Detected Technologies</h3>
+          <div class="tech-grid" id="techGrid"></div>
+        </div>
+
+        <!-- Security Headers -->
+        <div class="info-card" style="margin-bottom: 16px">
+          <h3>🛡️ Security Headers</h3>
+          <div class="headers-grid" id="headersGrid"></div>
+        </div>
+
+        <!-- SSL -->
+        <div class="info-card">
+          <h3>🔐 SSL / TLS Certificate</h3>
+          <div id="sslInfo"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    let progressTimer = null;
+
+    function setStatus(msg) {
+      const s = document.getElementById('statusLine');
+      s.textContent = '$ ' + msg;
+      s.classList.add('show');
+    }
+
+    function animateProgress() {
+      const bar = document.querySelector('.progress-bar');
+      const wrap = document.getElementById('progressWrap');
+      wrap.style.display = 'block';
+      bar.style.width = '0%';
+      let pct = 0;
+      const step = () => {
+        pct = Math.min(90, pct + (90 - pct) * 0.02);
+        bar.style.width = pct + '%';
+        progressTimer = setTimeout(step, 100);
+      };
+      step();
+    }
+
+    function finishProgress() {
+      clearTimeout(progressTimer);
+      const bar = document.querySelector('.progress-bar');
+      bar.style.width = '100%';
+      setTimeout(() => { document.getElementById('progressWrap').style.display = 'none'; }, 600);
+    }
+
+    async function runScan() {
+      const url = document.getElementById('urlInput').value.trim();
+      if (!url) { alert('Please enter a URL'); return; }
+
+      const btn = document.getElementById('scanBtn');
+      btn.disabled = true;
+      document.getElementById('btnIcon').textContent = '⏳';
+      document.getElementById('btnText').textContent = 'Analyzing...';
+      document.getElementById('errorCard').classList.remove('show');
+      document.getElementById('resultsSection').classList.remove('show');
+
+      animateProgress();
+      setStatus('fetching & analyzing ' + url + '...');
+
+      try {
+        const resp = await fetch('/api/scan/url', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ url })
+        });
+        const data = await resp.json();
+        finishProgress();
+
+        if (data.error && !data.status_code) {
+          document.getElementById('errorCard').textContent = '⚠ Error: ' + data.error;
+          document.getElementById('errorCard').classList.add('show');
+          setStatus('scan failed — ' + data.error);
+        } else {
+          displayResults(data);
+          setStatus(`analysis complete — ${(data.technologies||[]).length} technologies detected in ${data.scan_time}s`);
+        }
+      } catch(e) {
+        finishProgress();
+        document.getElementById('errorCard').textContent = '⚠ ' + e.message;
+        document.getElementById('errorCard').classList.add('show');
+        setStatus('error: ' + e.message);
+      } finally {
+        btn.disabled = false;
+        document.getElementById('btnIcon').textContent = '🔍';
+        document.getElementById('btnText').textContent = 'Analyze Website';
+      }
+    }
+
+    function statusClass(code) {
+      if (code >= 500) return 's-5xx';
+      if (code >= 400) return 's-4xx';
+      if (code >= 300) return 's-3xx';
+      return 's-2xx';
+    }
+
+    function displayResults(data) {
+      document.getElementById('resultsSection').classList.add('show');
+
+      // Site Info
+      const m = data.meta || {};
+      document.getElementById('siteInfo').innerHTML = `
+        <div class="info-row"><span class="info-key">URL</span><span class="info-val">${data.url}</span></div>
+        <div class="info-row"><span class="info-key">IP Address</span><span class="info-val">${data.ip || '—'}</span></div>
+        <div class="info-row"><span class="info-key">Status</span><span class="info-val"><span class="status-chip ${statusClass(data.status_code)}">${data.status_code || '—'}</span></span></div>
+        <div class="info-row"><span class="info-key">Title</span><span class="info-val">${m.title || '—'}</span></div>
+        <div class="info-row"><span class="info-key">Description</span><span class="info-val">${m.description ? m.description.substring(0,80)+'...' : '—'}</span></div>
+        <div class="info-row"><span class="info-key">Page Size</span><span class="info-val">${m.html_size || '—'}</span></div>
+        <div class="info-row"><span class="info-key">Links (int/ext)</span><span class="info-val">${(data.links||{}).internal||0} / ${(data.links||{}).external||0}</span></div>
+        <div class="info-row"><span class="info-key">Generator</span><span class="info-val">${m.generator || '—'}</span></div>
+        <div class="info-row"><span class="info-key">Scan Time</span><span class="info-val">${data.scan_time}s</span></div>
+      `;
+
+      // Security Score
+      const sec = data.security || {};
+      const score = sec.score || 0;
+      const grade = sec.grade || 'F';
+      const circumference = 201;
+      const offset = circumference - (score / 100) * circumference;
+
+      const circle = document.getElementById('scoreCircle');
+      const gradeColors = {A:'#10b981', B:'#00d4ff', C:'#f59e0b', D:'#f97316', F:'#ef4444'};
+      circle.style.stroke = gradeColors[grade] || '#ef4444';
+      circle.style.strokeDashoffset = offset;
+
+      document.getElementById('scoreNum').textContent = score + '%';
+      document.getElementById('scoreNum').style.color = gradeColors[grade];
+      document.getElementById('scoreGrade').textContent = 'Grade ' + grade;
+
+      document.getElementById('securityDetails').innerHTML = `
+        <div class="info-row"><span class="info-key">Present</span><span class="info-val good">${(sec.present||[]).length} headers</span></div>
+        <div class="info-row"><span class="info-key">Missing</span><span class="info-val bad">${(sec.missing||[]).length} headers</span></div>
+      `;
+
+      // Technologies
+      const techs = data.technologies || [];
+      const techGrid = document.getElementById('techGrid');
+      if (techs.length) {
+        techGrid.innerHTML = techs.map(t => `
+          <div class="tech-chip">
+            <span>${t.icon}</span>
+            <div>
+              <div>${t.name}</div>
+              <div class="tech-cat">${t.category}</div>
+            </div>
+          </div>
+        `).join('');
+      } else {
+        techGrid.innerHTML = '<div style="color:var(--muted);font-family:JetBrains Mono,monospace;font-size:12px;">No technologies detected</div>';
+      }
+
+      // Security Headers
+      const present = sec.present || [];
+      const missing = sec.missing || [];
+      const allHeaders = [...present.map(h => ({h, ok:true})), ...missing.map(h => ({h, ok:false}))];
+      document.getElementById('headersGrid').innerHTML = allHeaders.map(({h, ok}) => `
+        <div class="header-item ${ok ? 'h-present' : 'h-missing'}">
+          ${ok ? '✓' : '✗'} ${h}
+        </div>
+      `).join('');
+
+      // SSL
+      const ssl = data.ssl || {};
+      if (ssl.valid === true) {
+        document.getElementById('sslInfo').innerHTML = `
+          <div class="info-row"><span class="info-key">Status</span><span class="info-val good">✓ Valid Certificate</span></div>
+          <div class="info-row"><span class="info-key">Issued To</span><span class="info-val">${ssl.subject?.commonName || ssl.subject?.CN || '—'}</span></div>
+          <div class="info-row"><span class="info-key">Issuer</span><span class="info-val">${ssl.issuer?.organizationName || ssl.issuer?.O || '—'}</span></div>
+          <div class="info-row"><span class="info-key">Expires</span><span class="info-val">${ssl.expires || '—'}</span></div>
+        `;
+      } else if (ssl.valid === false) {
+        document.getElementById('sslInfo').innerHTML = `
+          <div class="info-row"><span class="info-key">Status</span><span class="info-val bad">✗ Invalid / Error</span></div>
+          <div class="info-row"><span class="info-key">Error</span><span class="info-val bad">${ssl.error || 'SSL check failed'}</span></div>
+        `;
+      } else {
+        document.getElementById('sslInfo').innerHTML = `<div class="info-row"><span class="info-key">Status</span><span class="info-val warn">— Could not verify (non-HTTPS or error)</span></div>`;
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('urlInput').addEventListener('keydown', e => {
+        if (e.key === 'Enter') runScan();
+      });
+    });
+  </script>
+</body>
+</html>

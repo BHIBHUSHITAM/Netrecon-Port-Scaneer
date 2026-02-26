@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NetRecon — Login</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #020408;
+      --surface: #0a0f1a;
+      --border: #1a2540;
+      --accent: #00d4ff;
+      --accent2: #7c3aed;
+      --accent3: #10b981;
+      --text: #e2e8f0;
+      --muted: #64748b;
+      --danger: #ef4444;
+    }
+
+    body {
+      font-family: 'Syne', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Animated grid background */
+    .grid-bg {
+      position: fixed; inset: 0;
+      background-image:
+        linear-gradient(rgba(0,212,255,.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,212,255,.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      animation: gridScroll 20s linear infinite;
+    }
+    @keyframes gridScroll {
+      0% { background-position: 0 0; }
+      100% { background-position: 40px 40px; }
+    }
+
+    /* Glowing orbs */
+    .orb {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.15;
+      animation: float 8s ease-in-out infinite;
+    }
+    .orb-1 { width: 400px; height: 400px; background: var(--accent); top: -100px; left: -100px; animation-delay: 0s; }
+    .orb-2 { width: 300px; height: 300px; background: var(--accent2); bottom: -50px; right: -50px; animation-delay: 3s; }
+    .orb-3 { width: 200px; height: 200px; background: var(--accent3); top: 50%; left: 50%; animation-delay: 6s; }
+
+    @keyframes float {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      50% { transform: translate(20px, -30px) scale(1.1); }
+    }
+
+    /* Scanlines effect */
+    .scanlines {
+      position: fixed; inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,.15) 2px,
+        rgba(0,0,0,.15) 4px
+      );
+      pointer-events: none;
+    }
+
+    /* Login Card */
+    .login-card {
+      position: relative;
+      z-index: 10;
+      background: rgba(10, 15, 26, 0.9);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 50px 48px;
+      width: 480px;
+      max-width: 95vw;
+      backdrop-filter: blur(20px);
+      box-shadow:
+        0 0 0 1px rgba(0,212,255,.08),
+        0 25px 60px rgba(0,0,0,.8),
+        0 0 80px rgba(0,212,255,.04);
+      animation: cardIn 0.8s cubic-bezier(.16,1,.3,1) forwards;
+    }
+
+    @keyframes cardIn {
+      from { opacity: 0; transform: translateY(30px) scale(.97); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* Top accent line */
+    .card-accent {
+      position: absolute;
+      top: 0; left: 20px; right: 20px;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent), var(--accent2), transparent);
+      border-radius: 2px;
+    }
+
+    /* Logo */
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 36px;
+    }
+    .logo-icon {
+      width: 44px; height: 44px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      font-size: 20px;
+      box-shadow: 0 0 20px rgba(0,212,255,.3);
+      animation: pulse-glow 2s ease-in-out infinite;
+    }
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 15px rgba(0,212,255,.3); }
+      50% { box-shadow: 0 0 30px rgba(0,212,255,.6); }
+    }
+    .logo-text {
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+    }
+    .logo-text span { color: var(--accent); }
+
+    /* Terminal badge */
+    .terminal-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--accent3);
+      background: rgba(16,185,129,.1);
+      border: 1px solid rgba(16,185,129,.2);
+      padding: 2px 8px;
+      border-radius: 20px;
+      margin-left: auto;
+      animation: blink 1.5s step-end infinite;
+    }
+    @keyframes blink {
+      50% { opacity: 0.4; }
+    }
+
+    h2 {
+      font-size: 26px;
+      font-weight: 800;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, #fff 40%, var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .subtitle {
+      color: var(--muted);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      margin-bottom: 36px;
+      letter-spacing: .5px;
+    }
+    .subtitle .cursor { animation: blink 1s step-end infinite; }
+
+    /* Feature list */
+    .features {
+      list-style: none;
+      margin-bottom: 36px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .features li {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      color: var(--muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .features li .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .dot-blue { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+    .dot-purple { background: var(--accent2); box-shadow: 0 0 6px var(--accent2); }
+    .dot-green { background: var(--accent3); box-shadow: 0 0 6px var(--accent3); }
+
+    /* Divider */
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 24px;
+      color: var(--muted);
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .divider::before, .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* Buttons */
+    .btn-google {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      width: 100%;
+      padding: 14px 24px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-decoration: none;
+      margin-bottom: 12px;
+      position: relative;
+      overflow: hidden;
+    }
+    .btn-google::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(0,212,255,.05), rgba(124,58,237,.05));
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .btn-google:hover {
+      border-color: var(--accent);
+      box-shadow: 0 0 20px rgba(0,212,255,.15);
+      transform: translateY(-1px);
+    }
+    .btn-google:hover::before { opacity: 1; }
+    .btn-google svg { width: 20px; height: 20px; flex-shrink: 0; }
+
+    .btn-demo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 12px 24px;
+      background: rgba(16,185,129,.08);
+      border: 1px solid rgba(16,185,129,.2);
+      border-radius: 12px;
+      color: var(--accent3);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-decoration: none;
+    }
+    .btn-demo:hover {
+      background: rgba(16,185,129,.15);
+      box-shadow: 0 0 15px rgba(16,185,129,.1);
+    }
+
+    /* Warning */
+    .warning {
+      margin-top: 20px;
+      padding: 12px 16px;
+      background: rgba(239,68,68,.06);
+      border: 1px solid rgba(239,68,68,.15);
+      border-radius: 10px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: rgba(239,68,68,.8);
+      line-height: 1.6;
+      text-align: center;
+    }
+
+    /* Flash messages */
+    .flash { padding: 10px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 13px; }
+    .flash-danger { background: rgba(239,68,68,.1); border: 1px solid rgba(239,68,68,.2); color: #f87171; }
+
+    /* Particle canvas */
+    #particles { position: fixed; inset: 0; z-index: 1; pointer-events: none; }
+
+    /* Footer */
+    .footer {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--muted);
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+  <div class="grid-bg"></div>
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+  <div class="scanlines"></div>
+  <canvas id="particles"></canvas>
+
+  <div class="login-card">
+    <div class="card-accent"></div>
+
+    <div class="logo">
+      <div class="logo-icon">🛡️</div>
+      <div class="logo-text">Net<span>Recon</span></div>
+      <div class="terminal-badge">● LIVE</div>
+    </div>
+
+    <h2>Access Dashboard</h2>
+    <p class="subtitle">$ authenticate --method=oauth2<span class="cursor">_</span></p>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, message in messages %}
+        <div class="flash flash-{{ category }}">{{ message }}</div>
+      {% endfor %}
+    {% endwith %}
+
+    <ul class="features">
+      <li><span class="dot dot-blue"></span> Port Scanner — detect open ports & services</li>
+      <li><span class="dot dot-purple"></span> Tech Fingerprinter — identify web technologies</li>
+      <li><span class="dot dot-green"></span> Security Audit — analyze headers & SSL certs</li>
+    </ul>
+
+    <div class="divider">AUTHENTICATE</div>
+
+    <a href="{{ url_for('google.login') }}" class="btn-google">
+      <svg viewBox="0 0 24 24" fill="none">
+        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+      </svg>
+      Sign in with Google
+    </a>
+
+    <a href="{{ url_for('demo_login') }}" class="btn-demo">
+      ⚡ Try Demo Mode (No Login Required)
+    </a>
+
+    <div class="warning">
+      ⚠️ For educational purposes only. Always scan targets you own or have permission to test.
+    </div>
+  </div>
+
+  <div class="footer">NetRecon v1.0 · Built for Security Research · College Project</div>
+
+  <script>
+    // Particle system
+    const canvas = document.getElementById('particles');
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    const particles = Array.from({length: 60}, () => ({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      r: Math.random() * 1.5 + 0.5,
+      vx: (Math.random() - .5) * .4,
+      vy: (Math.random() - .5) * .4,
+      alpha: Math.random() * .5 + .1,
+      color: Math.random() > .5 ? '0,212,255' : '124,58,237'
+    }));
+
+    function drawParticles() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      particles.forEach(p => {
+        p.x += p.vx; p.y += p.vy;
+        if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
+        if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${p.color},${p.alpha})`;
+        ctx.fill();
+      });
+      // Draw connections
+      particles.forEach((p, i) => {
+        particles.slice(i+1).forEach(q => {
+          const d = Math.hypot(p.x-q.x, p.y-q.y);
+          if (d < 100) {
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y);
+            ctx.strokeStyle = `rgba(0,212,255,${.06*(1-d/100)})`;
+            ctx.lineWidth = .5;
+            ctx.stroke();
+          }
+        });
+      });
+      requestAnimationFrame(drawParticles);
+    }
+    drawParticles();
+
+    window.addEventListener('resize', () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    });
+  </script>
+</body>
+</html>
